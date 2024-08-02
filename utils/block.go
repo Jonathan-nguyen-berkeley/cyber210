@@ -3,24 +3,28 @@ package utils
 import (
 	"fmt"
 	"hash"
-	"math/big"
+	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Block struct {
 	transactions    string
 	header          string // prev hash
-	work            string
+	work            uint64
 	numTransactions int
 	next            *Block
+	log             *zap.SugaredLogger
 }
 
-func NewBlock(header string) *Block {
-	return &Block{"", header, "", 0, nil}
+func NewBlock(header string, log *zap.SugaredLogger) *Block {
+	return &Block{"", header, 0, 0, nil, log}
 }
 
 func (b *Block) AddTransaction(t *Transaction) bool {
 	if !t.verified() {
+
 		return false
 	}
 	b.transactions += t.String()
@@ -34,6 +38,7 @@ func (b *Block) GetTransactionCount() int {
 
 func (b *Block) ComputeWork(hash hash.Hash) time.Duration {
 	// first 5 of hash are 0
+	b.log.Info("Computing Work ...")
 	if hash == nil {
 		return time.Duration(0)
 	}
@@ -47,11 +52,10 @@ func (b *Block) ComputeWork(hash hash.Hash) time.Duration {
 
 		hash.Write([]byte(info))
 		hashSum := hash.Sum(nil)
-		hashInt := new(big.Int).SetBytes(hashSum)
-
-		if HasLeadingZeros(hashInt) {
-			b.work = fmt.Sprintf("%x", nonce) // Save the work hash
-			fmt.Printf("Found nonce %x with hash %s\n", nonce, hashInt.String())
+		encoded := encode(string(hashSum)).Text(2)
+		padded := padZeros(encoded, hash.Size()*8)
+		if padded[:15] == strings.Repeat("0", 15) {
+			b.work = nonce // Save the work hash
 			break
 		}
 		// Increment nonce and try again
@@ -66,17 +70,16 @@ func (b *Block) verified(hash hash.Hash, prevHash string) bool {
 		return true
 	}
 	if prevHash != b.header {
-		fmt.Printf("Bad header >> Prev: %s != %s\n", prevHash, b.header)
+		fmt.Printf("Bad header >> Prev != header: %s != %s\n", prevHash, b.header)
 		return false
 	}
-	hashInt := new(big.Int).SetBytes([]byte(b.GetHash(hash)))
-	return HasLeadingZeros(hashInt)
+	encoded := encode(b.GetHash(hash)).Text(2)
+	padded := padZeros(encoded, hash.Size()*8)
+	return padded[0:15] == strings.Repeat("0", 15)
 }
 
-func HasLeadingZeros(hashInt *big.Int) bool {
-	// Create a big integer that represents the target value with the required number of leading zeros
-	target := new(big.Int).Lsh(big.NewInt(1), uint(8*5))
-	return hashInt.Cmp(target) < 0
+func padZeros(bin string, size int) string {
+	return strings.Repeat("0", size-len(bin)) + bin
 }
 
 func (b *Block) GetHash(hash hash.Hash) string {
@@ -84,11 +87,12 @@ func (b *Block) GetHash(hash hash.Hash) string {
 		return ""
 	}
 	hash.Reset()
+	hash.Write([]byte(fmt.Sprintf("%s%s%d", b.header, b.transactions, b.work)))
 
-	hash.Write([]byte(b.header + b.transactions + b.work))
 	return string(hash.Sum(nil))
 }
 
+func (b *Block) GetHeader() string { return b.header }
 func (b Block) String() string {
-	return fmt.Sprintf("Header: %s\nTransactions:\n%s\n%s", b.header, b.transactions, b.work)
+	return fmt.Sprintf("Header: %x\nTransactions:\n%s\nWork: %d\n", b.header, b.transactions, b.work)
 }

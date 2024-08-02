@@ -16,13 +16,13 @@ type Transaction struct {
 	modulus   *big.Int
 }
 
-func NewTransaction(sender string, rec string, amount int, id int) *Transaction {
+func NewTransaction(sender User, rec User, amount int, id int) *Transaction {
 	message := fmt.Sprintf("%s => %s (%d)", sender, rec, amount)
 	return &Transaction{
 		info:      message,
 		id:        id,
-		publicKey: PublicKeys[sender].publicKey,
-		modulus:   PublicKeys[sender].modulus,
+		publicKey: PublicKeys[sender.Name].key,
+		modulus:   PublicKeys[sender.Name].modulus,
 	}
 }
 func (t *Transaction) verified() bool {
@@ -39,22 +39,7 @@ func (t *Transaction) verified() bool {
 func (t *Transaction) String() string {
 	res := color.New(color.FgGreen).Sprint("============\n")
 	res += fmt.Sprintf("Id: %d\nInfo: %s\nSignature: %d\n", t.id, t.info, t.signature)
-	res += color.New(color.FgGreen).Sprint("============")
 	return res
-}
-
-func encode(message string) *big.Int {
-	messageBytes := []byte(message)
-	// Convert the byte slice to a big integer.
-	messageBigInt := new(big.Int).SetBytes(messageBytes)
-	return messageBigInt
-}
-
-func decode(message *big.Int) string {
-	// Convert the big integer to a byte slice.
-	messageBytes := message.Bytes()
-	// Return the string representation of the byte slice.
-	return string(messageBytes)
 }
 
 func hashMessage(message string) string {

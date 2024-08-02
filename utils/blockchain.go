@@ -21,6 +21,7 @@ func NewChain(Hash hash.Hash, start *Block, logger *zap.SugaredLogger) *Chain {
 
 func (c *Chain) AddBlock(block *Block) bool {
 	if !block.verified(c.Hash, c.Curr.GetHash(c.Hash)) {
+		c.logger.Warn("Invalid Block")
 		return false
 	}
 	c.Curr.next = block

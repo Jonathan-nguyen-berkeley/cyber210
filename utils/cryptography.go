@@ -5,13 +5,18 @@ import (
 )
 
 type keyPair struct {
-	publicKey *big.Int
-	modulus   *big.Int
+	key     *big.Int
+	modulus *big.Int
+}
+
+type User struct {
+	Name string
 }
 
 var PublicKeys = map[string]keyPair{}
+var PrivateKeys = map[string]keyPair{}
 
-func GeneratePrivateKey(user string, publicKey *big.Int) *big.Int {
+func (u User) GeneratePrivateKey(publicKey *big.Int) *big.Int {
 
 	p := new(big.Int).Exp(big.NewInt(2), big.NewInt(127), nil)
 	p.Sub(p, big.NewInt(1))
@@ -25,6 +30,7 @@ func GeneratePrivateKey(user string, publicKey *big.Int) *big.Int {
 	n := new(big.Int).Mul(p, q)
 	priv := new(big.Int)
 	priv.ModInverse(publicKey, phi)
-	PublicKeys[user] = keyPair{publicKey, n}
+	PublicKeys[u.Name] = keyPair{publicKey, n}
+	PrivateKeys[u.Name] = keyPair{priv, n}
 	return priv
 }
